@@ -89,7 +89,9 @@ app.get("/dashboard", async (req, res) => {
 
 // Home route
 app.get("/", (req, res) => {
-  res.send('<a href="/auth?shop=your-dev-store.myshopify.com">Install App</a>');
+  res.send(
+    '<a href="/auth?shop=new-dev-store-12324471.myshopify.com">Install App</a>'
+  );
 });
 
 const PORT = process.env.PORT || 3000;
