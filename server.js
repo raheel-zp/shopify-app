@@ -92,7 +92,7 @@ app.get("/dashboard", async (req, res) => {
     <h1>Shopify App Dashboard</h1>
     <h2>Products List</h2>
     <ul>${products.map((p) => `<li>${p.title} (${p.id})</li>`).join("")}</ul>
-    <h2>Customers</h2>
+    <h2>Customers List</h2>
     <ul>${customers
       .map((c) => `<li>${c.displayName} (${c.email})</li>`)
       .join("")}</ul>
