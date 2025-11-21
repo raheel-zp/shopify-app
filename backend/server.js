@@ -6,9 +6,8 @@ const app = express();
 
 const { SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SCOPES, HOST } = process.env;
 
-let ACTIVE_SHOP_TOKENS = {}; // In-memory store for demo
+let ACTIVE_SHOP_TOKENS = {};
 
-// Step 1: Install/Authorization endpoint
 app.get("/auth", (req, res) => {
   const { shop } = req.query;
   if (!shop) return res.send("Missing shop parameter");
@@ -19,11 +18,9 @@ app.get("/auth", (req, res) => {
   res.redirect(installUrl);
 });
 
-// Step 2: OAuth callback
 app.get("/auth/callback", async (req, res) => {
   const { shop, code } = req.query;
   if (!shop || !code) return res.send("Missing parameters");
-  // Exchange code for access token
   const tokenUrl = `https://${shop}/admin/oauth/access_token`;
   const { data } = await axios.post(tokenUrl, {
     client_id: SHOPIFY_API_KEY,
@@ -34,13 +31,11 @@ app.get("/auth/callback", async (req, res) => {
   res.redirect(`/dashboard?shop=${shop}`);
 });
 
-// Step 3: Billing (optional, for recurring charge)
 app.get("/billing", async (req, res) => {
   const { shop } = req.query;
   const accessToken = ACTIVE_SHOP_TOKENS[shop];
   if (!accessToken) return res.redirect(`/auth?shop=${shop}`);
 
-  // Create a recurring charge (test mode)
   const mutation = `
     mutation {
       appSubscriptionCreate(
@@ -63,13 +58,11 @@ app.get("/billing", async (req, res) => {
   res.redirect(confirmationUrl);
 });
 
-// Step 4: Dashboard - Show Products and Customers
 app.get("/dashboard", async (req, res) => {
   const { shop } = req.query;
   const accessToken = ACTIVE_SHOP_TOKENS[shop];
   if (!accessToken) return res.redirect(`/auth?shop=${shop}`);
 
-  // Fetch products
   const productsQuery = `{ products(first: 5) { edges { node { id title } } } }`;
   const productsResp = await axios.post(
     `https://${shop}/admin/api/2023-10/graphql.json`,
@@ -78,7 +71,6 @@ app.get("/dashboard", async (req, res) => {
   );
   const products = productsResp.data.data.products.edges.map((e) => e.node);
 
-  // Render simple HTML
   res.send(`
     <h1>Shopify App Dashboard</h1>
     <h2>Products</h2>
@@ -87,7 +79,6 @@ app.get("/dashboard", async (req, res) => {
   `);
 });
 
-// Home route
 app.get("/", (req, res) => {
   res.send(
     '<a href="/auth?shop=new-dev-store-12324471.myshopify.com">Install App</a>'
