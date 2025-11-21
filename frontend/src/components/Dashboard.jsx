@@ -8,7 +8,8 @@ import {
 } from "@shopify/polaris";
 import { useEffect, useState } from "react";
 import axios from "axios";
-
+const BACKEND_URL =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:3000";
 export default function Dashboard({ shop }) {
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -19,9 +20,9 @@ export default function Dashboard({ shop }) {
     if (!shop) return;
     async function fetchData() {
       try {
-        const p = await axios.get(`/api/products?shop=${shop}`);
+        const p = await axios.get(`${BACKEND_URL}/api/products?shop=${shop}`);
         setProducts(p.data);
-        const c = await axios.get(`/api/customers?shop=${shop}`);
+        const c = await axios.get(`${BACKEND_URL}/api/customers?shop=${shop}`);
         setCustomers(c.data);
       } catch (err) {
         console.error(err);

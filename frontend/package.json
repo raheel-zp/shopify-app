@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "homepage": ".",
+  "proxy": "http://localhost:3001",
   "dependencies": {
     "@shopify/polaris": "^13.9.5",
     "@shopify/polaris-icons": "^9.3.1",
