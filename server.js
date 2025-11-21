@@ -80,37 +80,11 @@ app.get("/dashboard", async (req, res) => {
   );
   const products = productsResp.data.data.products.edges.map((e) => e.node);
 
-  // Fetch customers
-  const customersQuery = `
-{
-  customers(first: 5) {
-    edges {
-      node {
-        id
-        firstName
-        lastName
-        email
-      }
-    }
-  }
-}`;
-  const customersResp = await axios.post(
-    `https://${shop}/admin/api/
-2025-10/graphql.json`,
-    { query: customersQuery },
-    { headers: { "X-Shopify-Access-Token": accessToken } }
-  );
-  const customers = customersResp.data.data.customers.edges.map((e) => e.node);
-
   // Render simple HTML
   res.send(`
     <h1>Shopify App Dashboard</h1>
     <h2>Products List</h2>
     <ul>${products.map((p) => `<li>${p.title} (${p.id})</li>`).join("")}</ul>
-    <h2>Customers List</h2>
-    <ul>${customers
-      .map((c) => `<li>${c.firstName} ${c.lastName} (${c.email})</li>`)
-      .join("")}</ul>
     <a href="/billing?shop=${shop}">Test Billing</a>
   `);
 });
