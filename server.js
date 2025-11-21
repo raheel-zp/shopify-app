@@ -55,7 +55,8 @@ app.get("/billing", async (req, res) => {
     }
   `;
   const resp = await axios.post(
-    `https://${shop}/admin/api/2023-10/graphql.json`,
+    `https://${shop}/admin/api/
+2025-10/graphql.json`,
     { query: mutation },
     { headers: { "X-Shopify-Access-Token": accessToken } }
   );
@@ -72,7 +73,8 @@ app.get("/dashboard", async (req, res) => {
   // Fetch products
   const productsQuery = `{ products(first: 5) { edges { node { id title } } } }`;
   const productsResp = await axios.post(
-    `https://${shop}/admin/api/2023-10/graphql.json`,
+    `https://${shop}/admin/api/
+2025-10/graphql.json`,
     { query: productsQuery },
     { headers: { "X-Shopify-Access-Token": accessToken } }
   );
@@ -81,7 +83,8 @@ app.get("/dashboard", async (req, res) => {
   // Fetch customers
   const customersQuery = `{ customers(first: 5) { edges { node { id displayName email } } } }`;
   const customersResp = await axios.post(
-    `https://${shop}/admin/api/2023-10/graphql.json`,
+    `https://${shop}/admin/api/
+2025-10/graphql.json`,
     { query: customersQuery },
     { headers: { "X-Shopify-Access-Token": accessToken } }
   );
