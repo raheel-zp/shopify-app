@@ -1,22 +1,21 @@
+// server.js
 require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
-const cors = require("cors");
-const path = require("path");
-
 const app = express();
-app.use(cors());
-app.use(express.json());
 
 const { SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SCOPES, HOST } = process.env;
-let ACTIVE_SHOP_TOKENS = {}; // In-memory token store (replace with DB for production)
 
-// Step 1: Install / OAuth
+let ACTIVE_SHOP_TOKENS = {}; // In-memory store for demo
+
+// Step 1: Install/Authorization endpoint
 app.get("/auth", (req, res) => {
   const { shop } = req.query;
-  if (!shop) return res.send("Missing shop");
+  if (!shop) return res.send("Missing shop parameter");
   const redirectUri = `${HOST}/auth/callback`;
-  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${SHOPIFY_API_KEY}&scope=${SCOPES}&redirect_uri=${redirectUri}`;
+  const installUrl =
+    `https://${shop}/admin/oauth/authorize?client_id=${SHOPIFY_API_KEY}` +
+    `&scope=${SCOPES}&redirect_uri=${redirectUri}`;
   res.redirect(installUrl);
 });
 
@@ -24,75 +23,29 @@ app.get("/auth", (req, res) => {
 app.get("/auth/callback", async (req, res) => {
   const { shop, code } = req.query;
   if (!shop || !code) return res.send("Missing parameters");
-
-  try {
-    const tokenUrl = `https://${shop}/admin/oauth/access_token`;
-    const { data } = await axios.post(tokenUrl, {
-      client_id: SHOPIFY_API_KEY,
-      client_secret: SHOPIFY_API_SECRET,
-      code,
-    });
-    ACTIVE_SHOP_TOKENS[shop] = data.access_token;
-    res.redirect(`${HOST}/?shop=${shop}`);
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).send("Error exchanging token");
-  }
+  // Exchange code for access token
+  const tokenUrl = `https://${shop}/admin/oauth/access_token`;
+  const { data } = await axios.post(tokenUrl, {
+    client_id: SHOPIFY_API_KEY,
+    client_secret: SHOPIFY_API_SECRET,
+    code,
+  });
+  ACTIVE_SHOP_TOKENS[shop] = data.access_token;
+  res.redirect(`/dashboard?shop=${shop}`);
 });
 
-// API route: Products
-app.get("/api/products", async (req, res) => {
+// Step 3: Billing (optional, for recurring charge)
+app.get("/billing", async (req, res) => {
   const { shop } = req.query;
-  const token = ACTIVE_SHOP_TOKENS[shop];
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
+  const accessToken = ACTIVE_SHOP_TOKENS[shop];
+  if (!accessToken) return res.redirect(`/auth?shop=${shop}`);
 
-  const query = `{ products(first: 10) { edges { node { id title } } } }`;
-  try {
-    const resp = await axios.post(
-      `https://${shop}/admin/api/2023-10/graphql.json`,
-      { query },
-      { headers: { "X-Shopify-Access-Token": token } }
-    );
-    const products = resp.data.data.products.edges.map((e) => e.node);
-    res.json(products);
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch products" });
-  }
-});
-
-// API route: Customers
-app.get("/api/customers", async (req, res) => {
-  const { shop } = req.query;
-  const token = ACTIVE_SHOP_TOKENS[shop];
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
-
-  const query = `{ customers(first: 10) { edges { node { id firstName lastName email } } } }`;
-  try {
-    const resp = await axios.post(
-      `https://${shop}/admin/api/2023-10/graphql.json`,
-      { query },
-      { headers: { "X-Shopify-Access-Token": token } }
-    );
-    const customers = resp.data.data.customers.edges.map((e) => e.node);
-    res.json(customers);
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch customers" });
-  }
-});
-
-// API route: Billing
-app.get("/api/billing", async (req, res) => {
-  const { shop } = req.query;
-  const token = ACTIVE_SHOP_TOKENS[shop];
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
-
+  // Create a recurring charge (test mode)
   const mutation = `
     mutation {
       appSubscriptionCreate(
         name: "Basic Plan",
-        returnUrl: "${HOST}/?shop=${shop}",
+        returnUrl: "${HOST}/dashboard?shop=${shop}",
         test: true,
         lineItems: [{ plan: { appRecurringPricingDetails: { price: { amount: 5.0, currencyCode: USD } } } }]
       ) {
@@ -101,25 +54,43 @@ app.get("/api/billing", async (req, res) => {
       }
     }
   `;
-  try {
-    const resp = await axios.post(
-      `https://${shop}/admin/api/2023-10/graphql.json`,
-      { query: mutation },
-      { headers: { "X-Shopify-Access-Token": token } }
-    );
-    const confirmationUrl =
-      resp.data.data.appSubscriptionCreate.confirmationUrl;
-    res.json({ confirmationUrl });
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to create billing" });
-  }
+  const resp = await axios.post(
+    `https://${shop}/admin/api/2023-10/graphql.json`,
+    { query: mutation },
+    { headers: { "X-Shopify-Access-Token": accessToken } }
+  );
+  const confirmationUrl = resp.data.data.appSubscriptionCreate.confirmationUrl;
+  res.redirect(confirmationUrl);
 });
 
-// // Serve React frontend (production)
-// app.use(express.static(path.join(__dirname, "../frontend/build")));
-// app.get("*", (req, res) => {
-//   res.sendFile(path.join(__dirname, "../frontend/build/index.html"));
-// });
+// Step 4: Dashboard - Show Products and Customers
+app.get("/dashboard", async (req, res) => {
+  const { shop } = req.query;
+  const accessToken = ACTIVE_SHOP_TOKENS[shop];
+  if (!accessToken) return res.redirect(`/auth?shop=${shop}`);
 
-module.exports = app;
+  // Fetch products
+  const productsQuery = `{ products(first: 5) { edges { node { id title } } } }`;
+  const productsResp = await axios.post(
+    `https://${shop}/admin/api/2023-10/graphql.json`,
+    { query: productsQuery },
+    { headers: { "X-Shopify-Access-Token": accessToken } }
+  );
+  const products = productsResp.data.data.products.edges.map((e) => e.node);
+
+  // Render simple HTML
+  res.send(`
+    <h1>Shopify App Dashboard</h1>
+    <h2>Products</h2>
+    <ul>${products.map((p) => `<li>${p.title} (${p.id})</li>`).join("")}</ul>
+    <a href="/billing?shop=${shop}">Test Billing</a>
+  `);
+});
+
+// Home route
+app.get("/", (req, res) => {
+  res.send('<a href="/auth?shop=your-dev-store.myshopify.com">Install App</a>');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`App running on port ${PORT}`));
