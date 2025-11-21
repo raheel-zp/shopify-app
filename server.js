@@ -8,7 +8,6 @@ const { SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SCOPES, HOST } = process.env;
 
 let ACTIVE_SHOP_TOKENS = {}; // In-memory store for demo
 
-// Step 1: Install/Authorization endpoint
 app.get("/auth", (req, res) => {
   const { shop } = req.query;
   if (!shop) return res.send("Missing shop parameter");
@@ -19,7 +18,6 @@ app.get("/auth", (req, res) => {
   res.redirect(installUrl);
 });
 
-// Step 2: OAuth callback
 app.get("/auth/callback", async (req, res) => {
   const { shop, code } = req.query;
   if (!shop || !code) return res.send("Missing parameters");
@@ -30,6 +28,7 @@ app.get("/auth/callback", async (req, res) => {
     client_secret: SHOPIFY_API_SECRET,
     code,
   });
+  console.log(data.accessToken);
   ACTIVE_SHOP_TOKENS[shop] = data.access_token;
   res.redirect(`/dashboard?shop=${shop}`);
 });
@@ -70,6 +69,7 @@ app.get("/dashboard", async (req, res) => {
   const accessToken = ACTIVE_SHOP_TOKENS[shop];
   if (!accessToken) return res.redirect(`/auth?shop=${shop}`);
 
+  console.log(ACTIVE_SHOP_TOKENS[shop]);
   // Fetch products
   const productsQuery = `{ products(first: 5) { edges { node { id title } } } }`;
   const productsResp = await axios.post(
